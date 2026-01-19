@@ -1,0 +1,16 @@
+import { NextResponse } from "next/server"
+import { getConversation } from "@/lib/cursor-api"
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const data = await getConversation(id)
+    return NextResponse.json(data)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error"
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
