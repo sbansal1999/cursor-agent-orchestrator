@@ -1,25 +1,53 @@
 "use client"
 
+import { useRef, useEffect, useState } from "react"
 import Markdown from "react-markdown"
 import rehypeRaw from "rehype-raw"
-import { usePRComments } from "@/hooks/useAgents"
+import { usePRComments, useIssueComments, type PRReactions, type PRComment } from "@/hooks/useAgents"
 import { FollowupForm } from "./FollowupForm"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs"
 
-interface ConversationPanelProps {
-  agentId: string
-  prUrl?: string
+const reactionEmojis: Record<keyof PRReactions, string> = {
+  "+1": "👍",
+  "-1": "👎",
+  laugh: "😄",
+  hooray: "🎉",
+  confused: "😕",
+  heart: "❤️",
+  rocket: "🚀",
+  eyes: "👀",
 }
 
-export function ConversationPanel({ agentId, prUrl }: ConversationPanelProps) {
-  const { data, isLoading, error } = usePRComments(prUrl, { refetch: true })
+function Reactions({ reactions }: { reactions: PRReactions }) {
+  const activeReactions = Object.entries(reactions).filter(([, count]) => count > 0)
+  if (activeReactions.length === 0) return null
 
-  if (!prUrl) {
-    return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        No PR linked
-      </div>
-    )
-  }
+  return (
+    <div className="flex gap-2 mt-2 flex-wrap">
+      {activeReactions.map(([key, count]) => (
+        <span
+          key={key}
+          className="inline-flex items-center gap-1 text-xs bg-muted-foreground/10 rounded-full px-2 py-0.5"
+        >
+          {reactionEmojis[key as keyof PRReactions]} {count}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function CommentList({ comments, isLoading, error }: { 
+  comments: PRComment[] | undefined
+  isLoading: boolean
+  error: Error | null
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [comments])
 
   if (isLoading) {
     return (
@@ -38,32 +66,98 @@ export function ConversationPanel({ agentId, prUrl }: ConversationPanelProps) {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-1 overflow-auto p-4">
-        <div className="space-y-4">
-          {data?.comments.map((comment) => (
-            <div
-              key={comment.id}
-              className="rounded-lg p-3 bg-muted"
-            >
-              <div className="text-xs text-muted-foreground mb-1">
-                <span className={comment.isBot ? "text-blue-400" : ""}>{comment.user}</span>
-                {" · "}
-                {new Date(comment.createdAt).toLocaleString()}
-              </div>
-              <div className="text-sm prose prose-sm prose-invert max-w-none overflow-x-auto">
-                <Markdown rehypePlugins={[rehypeRaw]}>{comment.body}</Markdown>
-              </div>
+    <div ref={scrollRef} className="flex-1 overflow-auto p-4">
+      <div className="space-y-4">
+        {comments?.map((comment) => (
+          <div key={comment.id} className="rounded-lg p-3 bg-muted">
+            <div className="text-xs text-muted-foreground mb-1">
+              <span className={comment.isBot ? "text-blue-400" : ""}>{comment.user}</span>
+              {" · "}
+              {new Date(comment.createdAt).toLocaleString()}
             </div>
-          ))}
-          {!data?.comments.length && (
-            <div className="text-center text-muted-foreground">
-              No comments yet
+            <div className="text-sm prose prose-sm prose-invert max-w-none overflow-x-auto">
+              <Markdown rehypePlugins={[rehypeRaw]}>{comment.body}</Markdown>
             </div>
-          )}
-        </div>
+            <Reactions reactions={comment.reactions} />
+          </div>
+        ))}
+        {!comments?.length && (
+          <div className="text-center text-muted-foreground">
+            No comments yet
+          </div>
+        )}
       </div>
-      <FollowupForm agentId={agentId} />
+    </div>
+  )
+}
+
+interface ConversationPanelProps {
+  prUrl?: string
+  issueUrl?: string
+}
+
+export function ConversationPanel({ prUrl, issueUrl }: ConversationPanelProps) {
+  const hasBoth = !!prUrl && !!issueUrl
+  const defaultTab = prUrl ? "pr" : "issue"
+  const [activeTab, setActiveTab] = useState(defaultTab)
+
+  const prComments = usePRComments(prUrl, { refetch: true, enabled: !!prUrl })
+  const issueComments = useIssueComments(issueUrl, { refetch: true, enabled: !!issueUrl })
+
+  if (!prUrl && !issueUrl) {
+    return (
+      <div className="flex items-center justify-center h-full text-muted-foreground">
+        No PR or issue linked
+      </div>
+    )
+  }
+
+  // Single view (no tabs) when only one type is available
+  if (!hasBoth) {
+    const isPR = !!prUrl
+    const { data, isLoading, error } = isPR ? prComments : issueComments
+
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        <CommentList 
+          comments={data?.comments} 
+          isLoading={isLoading} 
+          error={error} 
+        />
+        <FollowupForm prUrl={prUrl} issueUrl={issueUrl} />
+      </div>
+    )
+  }
+
+  // Tabbed view when both PR and issue are available
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
+        <div className="px-4 pt-2 shrink-0">
+          <TabsList>
+            <TabsTrigger value="issue">Issue</TabsTrigger>
+            <TabsTrigger value="pr">PR</TabsTrigger>
+          </TabsList>
+        </div>
+        
+        <TabsContent value="issue" className="flex-1 flex flex-col overflow-hidden">
+          <CommentList 
+            comments={issueComments.data?.comments} 
+            isLoading={issueComments.isLoading} 
+            error={issueComments.error} 
+          />
+          <FollowupForm issueUrl={issueUrl} />
+        </TabsContent>
+        
+        <TabsContent value="pr" className="flex-1 flex flex-col overflow-hidden">
+          <CommentList 
+            comments={prComments.data?.comments} 
+            isLoading={prComments.isLoading} 
+            error={prComments.error} 
+          />
+          <FollowupForm prUrl={prUrl} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
