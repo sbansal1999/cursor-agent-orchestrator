@@ -6,7 +6,7 @@ export const AgentSchema = z.object({
   id: z.string(),
   name: z.string(),
   status: AgentStatusSchema,
-  source: z.object({ repository: z.string(), ref: z.string().optional() }),
+  source: z.object({ repository: z.string(), ref: z.string().optional(), issueUrl: z.string().optional() }),
   target: z.object({
     branchName: z.string(),
     url: z.string(),
