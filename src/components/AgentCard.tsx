@@ -8,7 +8,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { usePRStatus, usePRComments, type PRCommentsResponse } from "@/hooks/useAgents"
+import { usePRStatus, usePRComments, type PRCommentsResponse, type PRReactions } from "@/hooks/useAgents"
 import type { Agent, AgentStatus } from "@/lib/schemas"
 
 const statusConfig: Record<AgentStatus, { className: string; dot: string }> = {
@@ -35,6 +35,32 @@ function timeAgo(date: string): string {
   if (hours < 24) return `${hours}h ago`
   const days = Math.floor(hours / 24)
   return `${days}d ago`
+}
+
+const reactionEmojis: Record<keyof PRReactions, string> = {
+  "+1": "👍",
+  "-1": "👎",
+  laugh: "😄",
+  hooray: "🎉",
+  confused: "😕",
+  heart: "❤️",
+  rocket: "🚀",
+  eyes: "👀",
+}
+
+function CompactReactions({ reactions }: { reactions: PRReactions }) {
+  const activeReactions = Object.entries(reactions).filter(([, count]) => count > 0)
+  if (activeReactions.length === 0) return null
+
+  return (
+    <span className="inline-flex gap-1 ml-2">
+      {activeReactions.slice(0, 4).map(([key, count]) => (
+        <span key={key} className="text-xs">
+          {reactionEmojis[key as keyof PRReactions]}{count > 1 && count}
+        </span>
+      ))}
+    </span>
+  )
 }
 
 interface AgentCardProps {
@@ -93,15 +119,16 @@ export function AgentCard({ agent }: AgentCardProps) {
             </p>
             {agent.target.prUrl && (
               <div className="flex items-center gap-2 flex-wrap">
-                <a
-                  href={agent.target.prUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                  onClick={(e) => e.stopPropagation()}
+                <span
+                  className="text-primary hover:underline cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    window.open(agent.target.prUrl, "_blank", "noopener,noreferrer")
+                  }}
                 >
                   PR #{agent.target.prUrl.split("/").pop()}
-                </a>
+                </span>
                 {prInfo && (
                   <>
                     <Badge variant="outline" className={`${prStatusConfig[prInfo.status].className} text-xs`}>
@@ -130,9 +157,28 @@ export function AgentCard({ agent }: AgentCardProps) {
               <div className="mt-2 border-t pt-2">
                 <div className="text-xs text-muted-foreground/50 mb-1">
                   {lastComment.user} · {timeAgo(lastComment.createdAt)}
+                  <CompactReactions reactions={lastComment.reactions} />
                 </div>
                 <div className="text-muted-foreground/70 prose prose-sm prose-invert max-w-none overflow-auto max-h-64">
-                  <Markdown rehypePlugins={[rehypeRaw]}>{lastComment.body}</Markdown>
+                  <Markdown
+                    rehypePlugins={[rehypeRaw]}
+                    components={{
+                      a: ({ href, children }) => (
+                        <span
+                          className="text-primary hover:underline cursor-pointer"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            if (href) window.open(href, "_blank", "noopener,noreferrer")
+                          }}
+                        >
+                          {children}
+                        </span>
+                      ),
+                    }}
+                  >
+                    {lastComment.body}
+                  </Markdown>
                 </div>
               </div>
             ) : null}

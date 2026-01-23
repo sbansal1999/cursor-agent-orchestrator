@@ -6,9 +6,11 @@ import { useAgents, usePRStatuses, useBatchPRComments } from "@/hooks/useAgents"
 import { AgentCard } from "./AgentCard"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
+import { CreateIssueDialog } from "./CreateIssueDialog"
 
 export function AgentList() {
   const [showAll, setShowAll] = useState(false)
+  const [hideExpired, setHideExpired] = useState(true)
   const queryClient = useQueryClient()
   const { data, isLoading, error, refetch, isFetching } = useAgents()
   const { prInfoMap: prStatuses, isLoading: prLoading } = usePRStatuses(data?.agents)
@@ -16,21 +18,23 @@ export function AgentList() {
   // Sort and filter agents
   const filteredAgents = useMemo(() => {
     if (!data?.agents) return []
-    return (showAll
-      ? data.agents
-      : data.agents.filter((agent) => {
-          if (!agent.target.prUrl) return true
+    return data.agents
+      .filter((agent) => {
+        if (hideExpired && agent.status === "EXPIRED") return false
+        if (!showAll && agent.target.prUrl) {
           const prInfo = prStatuses.get(agent.target.prUrl)
-          return !prInfo || prInfo.status === "open"
-        })
-    ).sort((a, b) => {
-      const aTime = a.target.prUrl ? prStatuses.get(a.target.prUrl)?.updatedAt : null
-      const bTime = b.target.prUrl ? prStatuses.get(b.target.prUrl)?.updatedAt : null
-      const aDate = new Date(aTime || a.createdAt).getTime()
-      const bDate = new Date(bTime || b.createdAt).getTime()
-      return bDate - aDate
-    })
-  }, [data?.agents, prStatuses, showAll])
+          if (prInfo && prInfo.status !== "open") return false
+        }
+        return true
+      })
+      .sort((a, b) => {
+        const aTime = a.target.prUrl ? prStatuses.get(a.target.prUrl)?.updatedAt : null
+        const bTime = b.target.prUrl ? prStatuses.get(b.target.prUrl)?.updatedAt : null
+        const aDate = new Date(aTime || a.createdAt).getTime()
+        const bDate = new Date(bTime || b.createdAt).getTime()
+        return bDate - aDate
+      })
+  }, [data?.agents, prStatuses, showAll, hideExpired])
 
   // Fetch PR comments for agents with open PRs
   const openPrUrls = useMemo(() => {
@@ -44,6 +48,16 @@ export function AgentList() {
       .map((a) => a.target.prUrl!)
   }, [filteredAgents, prStatuses, prLoading])
   const { fetchedCount, total, isLoading: commentsLoading } = useBatchPRComments(openPrUrls)
+
+  const repos = useMemo(() => {
+    const repoSet = new Set<string>()
+    data?.agents.forEach((agent) => {
+      if (agent.source.repository) {
+        repoSet.add(agent.source.repository)
+      }
+    })
+    return Array.from(repoSet).sort()
+  }, [data?.agents])
 
   const handleRefresh = async () => {
     try {
@@ -98,11 +112,18 @@ export function AgentList() {
           <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isFetching || commentsLoading}>
             {isFetching ? "Refreshing..." : "Refresh"}
           </Button>
+          <CreateIssueDialog repos={repos} />
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          <Switch checked={showAll} onCheckedChange={setShowAll} />
-          Show merged/closed
-        </label>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 text-sm">
+            <Switch checked={hideExpired} onCheckedChange={setHideExpired} />
+            Hide expired
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <Switch checked={showAll} onCheckedChange={setShowAll} />
+            Show merged/closed
+          </label>
+        </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredAgents.map((agent) => (
