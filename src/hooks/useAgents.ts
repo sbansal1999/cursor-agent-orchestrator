@@ -43,12 +43,24 @@ export function useConversation(agentId: string | null, options?: { refetch?: bo
   })
 }
 
+export type PRReactions = {
+  "+1": number
+  "-1": number
+  laugh: number
+  hooray: number
+  confused: number
+  heart: number
+  rocket: number
+  eyes: number
+}
+
 export type PRComment = {
   id: number
   user: string
   body: string
   createdAt: string
   isBot: boolean
+  reactions: PRReactions
 }
 
 export type PRCommentsResponse = { comments: PRComment[] }
@@ -58,6 +70,18 @@ export function usePRComments(prUrl: string | undefined, options?: { refetch?: b
     queryKey: ["pr-comments", prUrl],
     queryFn: () => fetchJSON(`/api/pr-comments?url=${encodeURIComponent(prUrl!)}`),
     enabled: (options?.enabled ?? true) && !!prUrl,
+    staleTime: 60000,
+    refetchInterval: options?.refetch ? POLL_INTERVAL : false,
+  })
+}
+
+export type IssueCommentsResponse = { comments: PRComment[] }
+
+export function useIssueComments(issueUrl: string | undefined, options?: { refetch?: boolean; enabled?: boolean }) {
+  return useQuery<IssueCommentsResponse>({
+    queryKey: ["issue-comments", issueUrl],
+    queryFn: () => fetchJSON(`/api/issue-comments?url=${encodeURIComponent(issueUrl!)}`),
+    enabled: (options?.enabled ?? true) && !!issueUrl,
     staleTime: 60000,
     refetchInterval: options?.refetch ? POLL_INTERVAL : false,
   })
@@ -74,14 +98,20 @@ export function useBatchPRComments(prUrls: string[]) {
     abortRef.current = new AbortController()
     const signal = abortRef.current.signal
 
-    setFetchedCount(0)
-    setIsLoading(true)
-
     const toFetch = urls.filter(
       (url) => !queryClient.getQueryData<PRCommentsResponse>(["pr-comments", url])
     )
     const alreadyCached = urls.length - toFetch.length
+
+    // Only show loading if there's actually something to fetch
+    if (toFetch.length === 0) {
+      setFetchedCount(urls.length)
+      setIsLoading(false)
+      return
+    }
+
     setFetchedCount(alreadyCached)
+    setIsLoading(true)
 
     for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
       if (signal.aborted) break
@@ -117,7 +147,27 @@ export function useBatchPRComments(prUrls: string[]) {
   return { fetchedCount, total: prUrls.length, isLoading }
 }
 
-export type PRInfo = { status: "open" | "merged" | "closed"; title: string; number: number; updatedAt: string }
+export type PRInfo = { status: "open" | "merged" | "closed"; title: string; number: number; updatedAt: string; draft: boolean }
+
+const MERGED_PRS_KEY = "cachedMergedPRs"
+
+function getCachedMergedPRs(): Record<string, PRInfo> {
+  if (typeof window === "undefined") return {}
+  try {
+    return JSON.parse(localStorage.getItem(MERGED_PRS_KEY) || "{}")
+  } catch {
+    return {}
+  }
+}
+
+function cacheMergedPR(url: string, info: PRInfo) {
+  if (typeof window === "undefined") return
+  try {
+    const cached = getCachedMergedPRs()
+    cached[url] = info
+    localStorage.setItem(MERGED_PRS_KEY, JSON.stringify(cached))
+  } catch {}
+}
 
 export function usePRStatus(prUrl: string | undefined) {
   return useQuery<PRInfo>({
@@ -129,20 +179,35 @@ export function usePRStatus(prUrl: string | undefined) {
 }
 
 export function usePRStatuses(agents: Agent[] | undefined) {
+  const queryClient = useQueryClient()
   const prUrls = agents?.map((a) => a.target.prUrl).filter((url): url is string => !!url) ?? []
+  const cachedMerged = getCachedMergedPRs()
+  const urlsToFetch = prUrls.filter((url) => !cachedMerged[url])
   
   const queries = useQueries({
-    queries: prUrls.map((url) => ({
+    queries: urlsToFetch.map((url) => ({
       queryKey: ["pr-status", url],
-      queryFn: () => fetchJSON<PRInfo>(`/api/pr-status?url=${encodeURIComponent(url)}`),
+      queryFn: async () => {
+        const data = await fetchJSON<PRInfo>(`/api/pr-status?url=${encodeURIComponent(url)}`)
+        if (data.status === "merged" || data.status === "closed") {
+          cacheMergedPR(url, data)
+        }
+        return data
+      },
       staleTime: 60000,
     })),
   })
 
   const prInfoMap = new Map<string, PRInfo>()
+  prUrls.forEach((url) => {
+    if (cachedMerged[url]) {
+      prInfoMap.set(url, cachedMerged[url])
+      queryClient.setQueryData(["pr-status", url], cachedMerged[url])
+    }
+  })
   queries.forEach((q, i) => {
     if (q.data) {
-      prInfoMap.set(prUrls[i], q.data)
+      prInfoMap.set(urlsToFetch[i], q.data)
     }
   })
 
@@ -164,6 +229,22 @@ export function useFollowup(agentId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["conversation", agentId] })
       queryClient.invalidateQueries({ queryKey: ["agents"] })
+    },
+  })
+}
+
+export function useMarkPRReady(prUrl: string | undefined) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () =>
+      fetchJSON("/api/pr-ready", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prUrl }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pr-status", prUrl] })
     },
   })
 }
