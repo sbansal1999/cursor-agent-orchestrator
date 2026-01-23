@@ -4,12 +4,16 @@ import { use, useState } from "react"
 import Link from "next/link"
 import Markdown from "react-markdown"
 import rehypeRaw from "rehype-raw"
-import { useAgent, usePRStatus, usePRComments } from "@/hooks/useAgents"
+import { toast } from "sonner"
+import { RefreshCw } from "lucide-react"
+import { useQueryClient } from "@tanstack/react-query"
+import { useAgent, usePRStatus, usePRComments, useIssueComments, useMarkPRReady } from "@/hooks/useAgents"
 import { ConversationPanel } from "@/components/ConversationPanel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { AgentStatus } from "@/lib/schemas"
+import { deriveIssueUrl } from "@/lib/github-api"
 
 const statusConfig: Record<AgentStatus, { className: string; dot: string }> = {
   CREATING: { className: "bg-blue-500/20 text-blue-400 border-blue-500/30", dot: "bg-blue-400" },
@@ -21,6 +25,7 @@ const statusConfig: Record<AgentStatus, { className: string; dot: string }> = {
 }
 
 const prStatusConfig = {
+  draft: { className: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30", label: "Draft" },
   open: { className: "bg-green-500/20 text-green-400 border-green-500/30", label: "Open" },
   merged: { className: "bg-purple-500/20 text-purple-400 border-purple-500/30", label: "Merged" },
   closed: { className: "bg-red-500/20 text-red-400 border-red-500/30", label: "Closed" },
@@ -28,13 +33,30 @@ const prStatusConfig = {
 
 export default function AgentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const queryClient = useQueryClient()
   const [reviewRequested, setReviewRequested] = useState(false)
   const [requestingReview, setRequestingReview] = useState(false)
+  const [refreshingComments, setRefreshingComments] = useState(false)
   const { data: agent, isLoading, error } = useAgent(id)
+  const issueUrl = agent ? deriveIssueUrl({ name: agent.name, source: agent.source }) : undefined
   const { data: prInfo } = usePRStatus(agent?.target.prUrl)
+  const markReadyMutation = useMarkPRReady(agent?.target.prUrl)
   const { data: prComments } = usePRComments(agent?.target.prUrl)
+  const { data: issueComments } = useIssueComments(issueUrl)
   
-  const lastComment = prComments?.comments?.at(-1)
+  const lastPRComment = prComments?.comments?.at(-1)
+  const lastIssueComment = issueComments?.comments?.at(-1)
+  const lastComment = lastPRComment || lastIssueComment
+
+  const handleCopyCheckout = () => {
+    const branch = agent?.target.branchName
+    if (!branch) return
+    const cmd = `if ! git diff --quiet || ! git diff --cached --quiet; then echo "⚠️ Uncommitted changes detected. Stash or commit first."; else git fetch origin && git checkout -B ${branch} origin/${branch}; fi`
+    navigator.clipboard.writeText(cmd)
+    toast.success("Checkout command copied", {
+      description: `git checkout ${branch}`,
+    })
+  }
 
   const handleRequestCodexReview = async () => {
     if (!agent?.target.prUrl) return
@@ -54,6 +76,26 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
     } finally {
       setRequestingReview(false)
     }
+  }
+
+  const handleRefreshComments = async () => {
+    setRefreshingComments(true)
+    try {
+      await Promise.all([
+        agent?.target.prUrl && queryClient.invalidateQueries({ queryKey: ["pr-comments", agent.target.prUrl] }),
+        issueUrl && queryClient.invalidateQueries({ queryKey: ["issue-comments", issueUrl] }),
+      ])
+      toast.success("Comments refreshed")
+    } finally {
+      setRefreshingComments(false)
+    }
+  }
+
+  const handleMarkReady = () => {
+    markReadyMutation.mutate(undefined, {
+      onSuccess: () => toast.success("PR marked ready for review"),
+      onError: () => toast.error("Failed to mark PR ready"),
+    })
   }
 
   if (isLoading) {
@@ -91,10 +133,59 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
                 <span className={`w-2 h-2 rounded-full ${status.dot}`} />
                 {agent.status}
               </Badge>
+              {prInfo && (() => {
+                const displayStatus = prInfo.draft ? "draft" : prInfo.status
+                return (
+                  <>
+                    <Badge variant="outline" className={prStatusConfig[displayStatus].className}>
+                      {prStatusConfig[displayStatus].label}
+                    </Badge>
+                    {prInfo.draft && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 text-xs"
+                        onClick={handleMarkReady}
+                        disabled={markReadyMutation.isPending}
+                      >
+                        {markReadyMutation.isPending ? "Marking..." : "Mark Ready"}
+                      </Button>
+                    )}
+                  </>
+                )
+              })()}
             </div>
             <p className="text-sm text-muted-foreground truncate">
               {agent.source.repository.replace("github.com/", "")}
             </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {issueUrl && (
+              <Button variant="outline" size="sm" asChild>
+                <a href={issueUrl} target="_blank" rel="noopener noreferrer">
+                  View Issue
+                </a>
+              </Button>
+            )}
+            {agent.target.prUrl && (
+              <>
+                <Button variant="outline" size="sm" asChild>
+                  <a href={agent.target.prUrl} target="_blank" rel="noopener noreferrer">
+                    View PR
+                  </a>
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <a href={`${agent.target.prUrl}/files`} target="_blank" rel="noopener noreferrer">
+                    View Changes
+                  </a>
+                </Button>
+              </>
+            )}
+            <Button variant="outline" size="sm" asChild>
+              <a href={agent.target.url} target="_blank" rel="noopener noreferrer">
+                View in Cursor
+              </a>
+            </Button>
           </div>
         </div>
       </header>
@@ -108,9 +199,12 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
                 <CardTitle className="text-base">Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                <div>
+                <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Branch:</span>{" "}
                   <code className="bg-muted px-1.5 py-0.5 rounded">{agent.target.branchName}</code>
+                  <Button variant="outline" size="sm" className="h-6 text-xs" onClick={handleCopyCheckout}>
+                    Copy checkout
+                  </Button>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Source ref:</span>{" "}
@@ -119,41 +213,6 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
                 <div>
                   <span className="text-muted-foreground">Created:</span>{" "}
                   {new Date(agent.createdAt).toLocaleString()}
-                </div>
-                {agent.target.prUrl && (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <a
-                      href={agent.target.prUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      PR #{agent.target.prUrl.split("/").pop()} →
-                    </a>
-                    <a
-                      href={`${agent.target.prUrl}/files`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      Changes →
-                    </a>
-                    {prInfo && (
-                      <Badge variant="outline" className={prStatusConfig[prInfo.status].className}>
-                        {prStatusConfig[prInfo.status].label}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-                <div>
-                  <a
-                    href={agent.target.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline"
-                  >
-                    View in Cursor →
-                  </a>
                 </div>
               </CardContent>
             </Card>
@@ -172,7 +231,14 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
             {lastComment && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Latest Comment</CardTitle>
+                  <CardTitle className="text-base">
+                    Latest Comment
+                    {lastPRComment && lastIssueComment && (
+                      <span className="text-xs font-normal text-muted-foreground ml-2">
+                        ({lastComment === lastPRComment ? "PR" : "Issue"})
+                      </span>
+                    )}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-xs text-muted-foreground mb-2">
@@ -190,21 +256,39 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
           <Card className="flex flex-col overflow-hidden">
             <CardHeader className="pb-2 border-b shrink-0">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base">PR Comments</CardTitle>
-                {agent.target.prUrl && (
+                <CardTitle className="text-base">
+                  {agent.target.prUrl && issueUrl 
+                    ? "Comments" 
+                    : agent.target.prUrl 
+                    ? "PR Comments" 
+                    : "Issue Comments"}
+                </CardTitle>
+                <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
-                    size="sm"
-                    onClick={handleRequestCodexReview}
-                    disabled={requestingReview || reviewRequested}
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={handleRefreshComments}
+                    disabled={refreshingComments}
+                    title="Refresh Comments"
                   >
-                    {reviewRequested ? "Review Requested" : requestingReview ? "Requesting..." : "Request Codex Review"}
+                    <RefreshCw className={`h-4 w-4 ${refreshingComments ? "animate-spin" : ""}`} />
                   </Button>
-                )}
+                  {agent.target.prUrl && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRequestCodexReview}
+                      disabled={requestingReview || reviewRequested}
+                    >
+                      {reviewRequested ? "Review Requested" : requestingReview ? "Requesting..." : "Request Codex Review"}
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <div className="flex-1 overflow-hidden">
-              <ConversationPanel agentId={id} prUrl={agent.target.prUrl} />
+              <ConversationPanel prUrl={agent.target.prUrl} issueUrl={issueUrl} />
             </div>
           </Card>
         </div>
