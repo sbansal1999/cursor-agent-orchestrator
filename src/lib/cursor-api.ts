@@ -38,10 +38,23 @@ async function fetchCursorAPI<T>(
 
 export async function listAgents(cursor?: string): Promise<AgentsResponse> {
   const params = new URLSearchParams()
+  params.set("limit", "100")
   if (cursor) params.set("cursor", cursor)
-  const query = params.toString()
-  const data = await fetchCursorAPI(`/agents${query ? `?${query}` : ""}`)
+  const data = await fetchCursorAPI(`/agents?${params.toString()}`)
   return AgentsResponseSchema.parse(data)
+}
+
+export async function listAllAgents(): Promise<AgentsResponse> {
+  const allAgents: AgentsResponse["agents"] = []
+  let cursor: string | undefined
+
+  do {
+    const response = await listAgents(cursor)
+    allAgents.push(...response.agents)
+    cursor = response.nextCursor
+  } while (cursor)
+
+  return { agents: allAgents }
 }
 
 export async function getAgent(id: string): Promise<AgentsResponse["agents"][0]> {

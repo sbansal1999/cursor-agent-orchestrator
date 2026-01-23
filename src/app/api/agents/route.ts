@@ -1,10 +1,9 @@
-import { NextRequest, NextResponse } from "next/server"
-import { listAgents } from "@/lib/cursor-api"
+import { NextResponse } from "next/server"
+import { listAllAgents } from "@/lib/cursor-api"
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const cursor = request.nextUrl.searchParams.get("cursor") ?? undefined
-    const data = await listAgents(cursor)
+    const data = await listAllAgents()
     return NextResponse.json(data)
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error"
