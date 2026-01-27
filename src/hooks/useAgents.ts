@@ -233,6 +233,25 @@ export function useFollowup(agentId: string) {
   })
 }
 
+export type PRCommit = {
+  sha: string
+  message: string
+  author: string
+  date: string
+  url: string
+}
+
+export type PRCommitsResponse = { commits: PRCommit[] }
+
+export function usePRCommits(prUrl: string | undefined) {
+  return useQuery<PRCommitsResponse>({
+    queryKey: ["pr-commits", prUrl],
+    queryFn: () => fetchJSON(`/api/pr-commits?url=${encodeURIComponent(prUrl!)}`),
+    enabled: !!prUrl,
+    staleTime: 60000,
+  })
+}
+
 export function useMarkPRReady(prUrl: string | undefined) {
   const queryClient = useQueryClient()
 

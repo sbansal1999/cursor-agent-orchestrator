@@ -312,6 +312,54 @@ export async function markPRReadyForReview(prUrl: string): Promise<boolean> {
   return !result.errors
 }
 
+export interface PRCommit {
+  sha: string
+  message: string
+  author: string
+  date: string
+  url: string
+}
+
+export async function fetchPRCommits(prUrl: string): Promise<PRCommit[] | null> {
+  const parsed = parsePrUrl(prUrl)
+  if (!parsed) {
+    console.error("Failed to parse PR URL:", prUrl)
+    return null
+  }
+
+  const token = process.env.GITHUB_TOKEN
+  if (!token) {
+    console.error("GITHUB_TOKEN not set")
+    return null
+  }
+
+  const res = await fetch(
+    `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/pulls/${parsed.number}/commits?per_page=100`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    }
+  )
+
+  if (!res.ok) {
+    const body = await res.text()
+    console.error(`GitHub API error: ${res.status}`, body)
+    return null
+  }
+
+  const data = await res.json()
+
+  return data.map((commit: any) => ({
+    sha: commit.sha,
+    message: commit.commit.message.split("\n")[0], // First line only
+    author: commit.commit.author?.name || commit.author?.login || "Unknown",
+    date: commit.commit.author?.date || "",
+    url: commit.html_url,
+  }))
+}
+
 export async function commentOnIssue(issueUrl: string, comment: string): Promise<boolean> {
   const parsed = parseIssueUrl(issueUrl)
   if (!parsed) {
