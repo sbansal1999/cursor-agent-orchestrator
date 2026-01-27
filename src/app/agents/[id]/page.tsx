@@ -7,13 +7,12 @@ import rehypeRaw from "rehype-raw"
 import { toast } from "sonner"
 import { RefreshCw } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
-import { useAgent, usePRStatus, usePRComments, useIssueComments, useMarkPRReady } from "@/hooks/useAgents"
+import { useAgent, usePRStatus, usePRComments, useMarkPRReady, usePRCommits } from "@/hooks/useAgents"
 import { ConversationPanel } from "@/components/ConversationPanel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { AgentStatus } from "@/lib/schemas"
-import { deriveIssueUrl } from "@/lib/github-api"
 
 const statusConfig: Record<AgentStatus, { className: string; dot: string }> = {
   CREATING: { className: "bg-blue-500/20 text-blue-400 border-blue-500/30", dot: "bg-blue-400" },
@@ -38,15 +37,12 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
   const [requestingReview, setRequestingReview] = useState(false)
   const [refreshingComments, setRefreshingComments] = useState(false)
   const { data: agent, isLoading, error } = useAgent(id)
-  const issueUrl = agent ? deriveIssueUrl({ name: agent.name, source: agent.source }) : undefined
   const { data: prInfo } = usePRStatus(agent?.target.prUrl)
   const markReadyMutation = useMarkPRReady(agent?.target.prUrl)
   const { data: prComments } = usePRComments(agent?.target.prUrl)
-  const { data: issueComments } = useIssueComments(issueUrl)
+  const { data: prCommits } = usePRCommits(agent?.target.prUrl)
   
-  const lastPRComment = prComments?.comments?.at(-1)
-  const lastIssueComment = issueComments?.comments?.at(-1)
-  const lastComment = lastPRComment || lastIssueComment
+  const lastComment = prComments?.comments?.at(-1)
 
   const handleCopyCheckout = () => {
     const branch = agent?.target.branchName
@@ -81,10 +77,9 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
   const handleRefreshComments = async () => {
     setRefreshingComments(true)
     try {
-      await Promise.all([
-        agent?.target.prUrl && queryClient.invalidateQueries({ queryKey: ["pr-comments", agent.target.prUrl] }),
-        issueUrl && queryClient.invalidateQueries({ queryKey: ["issue-comments", issueUrl] }),
-      ])
+      if (agent?.target.prUrl) {
+        await queryClient.invalidateQueries({ queryKey: ["pr-comments", agent.target.prUrl] })
+      }
       toast.success("Comments refreshed")
     } finally {
       setRefreshingComments(false)
@@ -160,13 +155,6 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {issueUrl && (
-              <Button variant="outline" size="sm" asChild>
-                <a href={issueUrl} target="_blank" rel="noopener noreferrer">
-                  View Issue
-                </a>
-              </Button>
-            )}
             {agent.target.prUrl && (
               <>
                 <Button variant="outline" size="sm" asChild>
@@ -228,17 +216,40 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
               </Card>
             )}
 
-            {lastComment && (
+            {prCommits?.commits && prCommits.commits.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">
-                    Latest Comment
-                    {lastPRComment && lastIssueComment && (
-                      <span className="text-xs font-normal text-muted-foreground ml-2">
-                        ({lastComment === lastPRComment ? "PR" : "Issue"})
-                      </span>
-                    )}
+                    Commits
+                    <span className="text-xs font-normal text-muted-foreground ml-2">
+                      ({prCommits.commits.length})
+                    </span>
                   </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {prCommits.commits.map((commit) => (
+                    <div key={commit.sha} className="flex items-start gap-2 text-sm">
+                      <a
+                        href={commit.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-xs text-muted-foreground hover:text-primary shrink-0"
+                      >
+                        {commit.sha.slice(0, 7)}
+                      </a>
+                      <span className="truncate flex-1" title={commit.message}>
+                        {commit.message}
+                      </span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {lastComment && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Latest Comment</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-xs text-muted-foreground mb-2">
@@ -256,13 +267,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
           <Card className="flex flex-col overflow-hidden">
             <CardHeader className="pb-2 border-b shrink-0">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base">
-                  {agent.target.prUrl && issueUrl 
-                    ? "Comments" 
-                    : agent.target.prUrl 
-                    ? "PR Comments" 
-                    : "Issue Comments"}
-                </CardTitle>
+                <CardTitle className="text-base">PR Comments</CardTitle>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -288,7 +293,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
               </div>
             </CardHeader>
             <div className="flex-1 overflow-hidden">
-              <ConversationPanel prUrl={agent.target.prUrl} issueUrl={issueUrl} />
+              <ConversationPanel prUrl={agent.target.prUrl} />
             </div>
           </Card>
         </div>

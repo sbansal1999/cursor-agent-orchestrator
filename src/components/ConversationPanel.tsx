@@ -1,11 +1,10 @@
 "use client"
 
-import { useRef, useEffect, useState } from "react"
+import { useRef, useEffect } from "react"
 import Markdown from "react-markdown"
 import rehypeRaw from "rehype-raw"
-import { usePRComments, useIssueComments, type PRReactions, type PRComment } from "@/hooks/useAgents"
+import { usePRComments, type PRReactions, type PRComment } from "@/hooks/useAgents"
 import { FollowupForm } from "./FollowupForm"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs"
 
 const reactionEmojis: Record<keyof PRReactions, string> = {
   "+1": "👍",
@@ -93,71 +92,27 @@ function CommentList({ comments, isLoading, error }: {
 
 interface ConversationPanelProps {
   prUrl?: string
-  issueUrl?: string
 }
 
-export function ConversationPanel({ prUrl, issueUrl }: ConversationPanelProps) {
-  const hasBoth = !!prUrl && !!issueUrl
-  const defaultTab = prUrl ? "pr" : "issue"
-  const [activeTab, setActiveTab] = useState(defaultTab)
+export function ConversationPanel({ prUrl }: ConversationPanelProps) {
+  const { data, isLoading, error } = usePRComments(prUrl, { refetch: true, enabled: !!prUrl })
 
-  const prComments = usePRComments(prUrl, { refetch: true, enabled: !!prUrl })
-  const issueComments = useIssueComments(issueUrl, { refetch: true, enabled: !!issueUrl })
-
-  if (!prUrl && !issueUrl) {
+  if (!prUrl) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        No PR or issue linked
+        No PR linked
       </div>
     )
   }
 
-  // Single view (no tabs) when only one type is available
-  if (!hasBoth) {
-    const isPR = !!prUrl
-    const { data, isLoading, error } = isPR ? prComments : issueComments
-
-    return (
-      <div className="flex flex-col h-full overflow-hidden">
-        <CommentList 
-          comments={data?.comments} 
-          isLoading={isLoading} 
-          error={error} 
-        />
-        <FollowupForm prUrl={prUrl} issueUrl={issueUrl} />
-      </div>
-    )
-  }
-
-  // Tabbed view when both PR and issue are available
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-        <div className="px-4 pt-2 shrink-0">
-          <TabsList>
-            <TabsTrigger value="issue">Issue</TabsTrigger>
-            <TabsTrigger value="pr">PR</TabsTrigger>
-          </TabsList>
-        </div>
-        
-        <TabsContent value="issue" className="flex-1 flex flex-col overflow-hidden">
-          <CommentList 
-            comments={issueComments.data?.comments} 
-            isLoading={issueComments.isLoading} 
-            error={issueComments.error} 
-          />
-          <FollowupForm issueUrl={issueUrl} />
-        </TabsContent>
-        
-        <TabsContent value="pr" className="flex-1 flex flex-col overflow-hidden">
-          <CommentList 
-            comments={prComments.data?.comments} 
-            isLoading={prComments.isLoading} 
-            error={prComments.error} 
-          />
-          <FollowupForm prUrl={prUrl} />
-        </TabsContent>
-      </Tabs>
+      <CommentList 
+        comments={data?.comments} 
+        isLoading={isLoading} 
+        error={error} 
+      />
+      <FollowupForm prUrl={prUrl} />
     </div>
   )
 }
