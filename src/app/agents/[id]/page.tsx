@@ -237,9 +237,15 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
                       >
                         {commit.sha.slice(0, 7)}
                       </a>
-                      <span className="truncate flex-1" title={commit.message}>
+                      <a
+                        href={commit.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="truncate flex-1 hover:text-primary"
+                        title={commit.message}
+                      >
                         {commit.message}
-                      </span>
+                      </a>
                     </div>
                   ))}
                 </CardContent>
