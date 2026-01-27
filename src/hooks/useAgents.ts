@@ -133,18 +133,17 @@ export function useBatchPRComments(prUrls: string[]) {
     }
   }, [queryClient])
 
-  const urlsKey = prUrls.join(",")
-  useEffect(() => {
+  const refetch = useCallback(() => {
     if (prUrls.length > 0) {
       fetchInBatches(prUrls)
-    } else {
-      setIsLoading(false)
     }
-    return () => abortRef.current?.abort()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlsKey])
+  }, [prUrls, fetchInBatches])
 
-  return { fetchedCount, total: prUrls.length, isLoading }
+  useEffect(() => {
+    return () => abortRef.current?.abort()
+  }, [])
+
+  return { fetchedCount, total: prUrls.length, isLoading, refetch }
 }
 
 export type PRInfo = { status: "open" | "merged" | "closed"; title: string; number: number; updatedAt: string; draft: boolean }

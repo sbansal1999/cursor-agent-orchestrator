@@ -47,7 +47,7 @@ export function AgentList() {
       })
       .map((a) => a.target.prUrl!)
   }, [filteredAgents, prStatuses, prLoading])
-  const { fetchedCount, total, isLoading: commentsLoading } = useBatchPRComments(openPrUrls)
+  const { fetchedCount, total, isLoading: commentsLoading, refetch: refetchComments } = useBatchPRComments(openPrUrls)
 
   const repos = useMemo(() => {
     const repoSet = new Set<string>()
@@ -62,8 +62,10 @@ export function AgentList() {
   const handleRefresh = async () => {
     try {
       await refetch()
-      queryClient.invalidateQueries({ queryKey: ["pr-comments"] })
       queryClient.invalidateQueries({ queryKey: ["pr-status"] })
+      // Clear PR comments cache then refetch
+      queryClient.removeQueries({ queryKey: ["pr-comments"] })
+      refetchComments()
     } catch {}
   }
 

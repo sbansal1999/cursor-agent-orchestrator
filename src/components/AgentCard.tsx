@@ -77,7 +77,7 @@ export function AgentCard({ agent }: AgentCardProps) {
   
   const { data: prComments } = usePRComments(agent.target.prUrl, { enabled: false })
   const lastComment = prComments?.comments?.at(-1)
-  const needsManualFetch = isClosedPR && !prComments && agent.target.prUrl
+  const needsManualFetch = !prComments && agent.target.prUrl
 
   const handleFetchComments = async (e: React.MouseEvent) => {
     e.preventDefault()
