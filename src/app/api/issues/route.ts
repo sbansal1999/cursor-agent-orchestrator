@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
           Accept: "application/vnd.github.v3+json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ body: `@cursor fix this issue (#${issue.number})` }),
+        body: JSON.stringify({ body: `@cursor Fix this issue (issue #${issue.number}).` }),
       }
     )
 
