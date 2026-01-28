@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { useQueryClient } from "@tanstack/react-query"
-import { useAgents, usePRStatuses, useBatchPRComments } from "@/hooks/useAgents"
+import { useAgents, usePRStatuses } from "@/hooks/useAgents"
 import { AgentCard } from "./AgentCard"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
@@ -11,7 +10,6 @@ import { CreateIssueDialog } from "./CreateIssueDialog"
 export function AgentList() {
   const [showAll, setShowAll] = useState(false)
   const [hideExpired, setHideExpired] = useState(true)
-  const queryClient = useQueryClient()
   const { data, isLoading, error, refetch, isFetching } = useAgents()
   const { prInfoMap: prStatuses, isLoading: prLoading } = usePRStatuses(data?.agents)
 
@@ -36,19 +34,6 @@ export function AgentList() {
       })
   }, [data?.agents, prStatuses, showAll, hideExpired])
 
-  // Fetch PR comments for agents with open PRs
-  const openPrUrls = useMemo(() => {
-    if (prLoading) return []
-    return filteredAgents
-      .filter((a) => {
-        if (!a.target.prUrl) return false
-        const prInfo = prStatuses.get(a.target.prUrl)
-        return prInfo?.status === "open"
-      })
-      .map((a) => a.target.prUrl!)
-  }, [filteredAgents, prStatuses, prLoading])
-  const { fetchedCount, total, isLoading: commentsLoading, refetch: refetchComments } = useBatchPRComments(openPrUrls)
-
   const repos = useMemo(() => {
     const repoSet = new Set<string>()
     data?.agents.forEach((agent) => {
@@ -58,16 +43,6 @@ export function AgentList() {
     })
     return Array.from(repoSet).sort()
   }, [data?.agents])
-
-  const handleRefresh = async () => {
-    try {
-      await refetch()
-      queryClient.invalidateQueries({ queryKey: ["pr-status"] })
-      // Clear PR comments cache then refetch
-      queryClient.removeQueries({ queryKey: ["pr-comments"] })
-      refetchComments()
-    } catch {}
-  }
 
   if (isLoading) {
     return (
@@ -103,15 +78,13 @@ export function AgentList() {
             {filteredAgents.length} agent{filteredAgents.length !== 1 ? "s" : ""}
             {hiddenCount > 0 && !showAll && ` (${hiddenCount} hidden)`}
           </span>
-          {(prLoading || commentsLoading) && (
+          {prLoading && (
             <span className="text-xs text-muted-foreground/50 flex items-center gap-1.5">
               <span className="w-3 h-3 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
-              {prLoading 
-                ? "Loading PR status..." 
-                : `Loading comments (${fetchedCount}/${total})...`}
+              Loading PR status...
             </span>
           )}
-          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isFetching || commentsLoading}>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
             {isFetching ? "Refreshing..." : "Refresh"}
           </Button>
           <CreateIssueDialog repos={repos} />
