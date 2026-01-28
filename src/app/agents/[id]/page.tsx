@@ -11,7 +11,7 @@ import dayjs from "dayjs"
 import relativeTime from "dayjs/plugin/relativeTime"
 
 dayjs.extend(relativeTime)
-import { useAgent, usePRStatus, usePRComments, useMarkPRReady, usePRCommits } from "@/hooks/useAgents"
+import { useAgent, usePRStatus, useMarkPRReady, usePRCommits } from "@/hooks/useAgents"
 import { ConversationPanel } from "@/components/ConversationPanel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -43,10 +43,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
   const { data: agent, isLoading, error } = useAgent(id)
   const { data: prInfo } = usePRStatus(agent?.target.prUrl)
   const markReadyMutation = useMarkPRReady(agent?.target.prUrl)
-  const { data: prComments } = usePRComments(agent?.target.prUrl)
   const { data: prCommits } = usePRCommits(agent?.target.prUrl)
-  
-  const lastComment = prComments?.comments?.at(-1)
 
   const handleCopyCheckout = () => {
     const branch = agent?.target.branchName
@@ -259,21 +256,6 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
               </Card>
             )}
 
-            {lastComment && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Latest Comment</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-xs text-muted-foreground mb-2">
-                    {lastComment.user} · {new Date(lastComment.createdAt).toLocaleString()}
-                  </div>
-                  <div className="prose prose-sm prose-invert max-w-none overflow-x-auto">
-                    <Markdown rehypePlugins={[rehypeRaw]}>{lastComment.body}</Markdown>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
 
           {/* Conversation */}
