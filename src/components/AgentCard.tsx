@@ -5,6 +5,10 @@ import Link from "next/link"
 import Markdown from "react-markdown"
 import rehypeRaw from "rehype-raw"
 import { useQueryClient } from "@tanstack/react-query"
+import dayjs from "dayjs"
+import relativeTime from "dayjs/plugin/relativeTime"
+
+dayjs.extend(relativeTime)
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -26,16 +30,6 @@ const prStatusConfig = {
   closed: { className: "bg-red-500/20 text-red-400 border-red-500/30", label: "Closed" },
 }
 
-function timeAgo(date: string): string {
-  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
-  if (seconds < 60) return "just now"
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-}
 
 const reactionEmojis: Record<keyof PRReactions, string> = {
   "+1": "👍",
@@ -135,7 +129,7 @@ export function AgentCard({ agent }: AgentCardProps) {
                       {prStatusConfig[prInfo.status].label}
                     </Badge>
                     <span className="text-muted-foreground/50 text-xs">
-                      {timeAgo(prInfo.updatedAt)}
+                      {dayjs(prInfo.updatedAt).fromNow()}
                     </span>
                   </>
                 )}
@@ -156,7 +150,7 @@ export function AgentCard({ agent }: AgentCardProps) {
             ) : lastComment ? (
               <div className="mt-2 border-t pt-2">
                 <div className="text-xs text-muted-foreground/50 mb-1">
-                  {lastComment.user} · {timeAgo(lastComment.createdAt)}
+                  {lastComment.user} · {dayjs(lastComment.createdAt).fromNow()}
                   <CompactReactions reactions={lastComment.reactions} />
                 </div>
                 <div className="text-muted-foreground/70 prose prose-sm prose-invert max-w-none overflow-auto max-h-64">

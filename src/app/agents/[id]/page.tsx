@@ -7,6 +7,10 @@ import rehypeRaw from "rehype-raw"
 import { toast } from "sonner"
 import { RefreshCw } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
+import dayjs from "dayjs"
+import relativeTime from "dayjs/plugin/relativeTime"
+
+dayjs.extend(relativeTime)
 import { useAgent, usePRStatus, usePRComments, useMarkPRReady, usePRCommits } from "@/hooks/useAgents"
 import { ConversationPanel } from "@/components/ConversationPanel"
 import { Badge } from "@/components/ui/badge"
@@ -246,6 +250,9 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
                       >
                         {commit.message}
                       </a>
+                      <span className="text-xs text-muted-foreground/50 shrink-0">
+                        {dayjs(commit.date).fromNow()}
+                      </span>
                     </div>
                   ))}
                 </CardContent>
