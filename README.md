@@ -5,6 +5,11 @@ Web dashboard for monitoring and interacting with Cursor Background Agents.
 Uses the Cursor Cloud Agent API endpoints documented here:
 [Cursor Cloud Agent API](https://cursor.com/docs/cloud-agent/api/endpoints).
 
+## Screenshots
+
+![Home page](./public/screenshots/home-page.png)
+![Agent chat](./public/screenshots/agent-chat.png)
+
 ## Requirements
 
 - Node.js 18+
