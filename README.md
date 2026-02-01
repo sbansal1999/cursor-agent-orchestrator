@@ -39,5 +39,4 @@ Uses the Cursor Cloud Agent API endpoints documented here:
 - `pnpm dev` – start the dev server on port 3098
 - `pnpm build` – production build
 - `pnpm start` – run the production server
-- `pnpm lint` – run ESLint
-- `pnpm lint:ox` – run Oxlint on `src/`
+- `pnpm lint` – run Oxlint on `src/`
