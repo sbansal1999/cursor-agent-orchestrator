@@ -1,16 +1,13 @@
 # Cursor Agent Orchestrator
 
-A web dashboard for monitoring and interacting with [Cursor Background Agents](https://docs.cursor.com/background-agent/overview).
+Web dashboard for monitoring and interacting with Cursor Background Agents.
 
-## Features
+## Requirements
 
-- View all running background agents and their status
-- Read conversation history for each agent
-- Send follow-up prompts to agents
-- GitHub PR integration (status, comments)
-- Browser notifications when agents complete
+- Node.js 18+
+- pnpm
 
-## Setup
+## Quickstart
 
 1. Install dependencies:
    ```bash
@@ -18,9 +15,9 @@ A web dashboard for monitoring and interacting with [Cursor Background Agents](h
    ```
 
 2. Create `.env.local` with your API keys:
-   ```
+   ```bash
    CURSOR_API_KEY=your_cursor_api_key
-   GITHUB_TOKEN=your_github_token  # optional, for PR features
+   GITHUB_TOKEN=your_github_token # optional, for PR features
    ```
 
 3. Run the dev server:
@@ -28,4 +25,12 @@ A web dashboard for monitoring and interacting with [Cursor Background Agents](h
    pnpm dev
    ```
 
-4. Open [http://localhost:3000](http://localhost:3000)
+4. Open http://localhost:3098
+
+## Scripts
+
+- `pnpm dev` – start the dev server on port 3098
+- `pnpm build` – production build
+- `pnpm start` – run the production server
+- `pnpm lint` – run ESLint
+- `pnpm lint:ox` – run Oxlint on `src/`
