@@ -14,10 +14,9 @@ Web dashboard for monitoring and interacting with Cursor Background Agents.
    pnpm install
    ```
 
-2. Create `.env.local` with your API keys:
+2. Copy `.env.example` to `.env.local` and add your API keys:
    ```bash
-   CURSOR_API_KEY=your_cursor_api_key
-   GITHUB_TOKEN=your_github_token # optional, for PR features
+   cp .env.example .env.local
    ```
 
 3. Run the dev server:
