@@ -229,7 +229,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {prCommits.commits.map((commit) => (
-                    <div key={commit.sha} className="flex items-start gap-2 text-sm">
+                    <div key={commit.sha} className="flex items-baseline gap-2 text-sm">
                       <a
                         href={commit.url}
                         target="_blank"
