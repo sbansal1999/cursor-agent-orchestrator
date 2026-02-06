@@ -5,6 +5,7 @@ import Markdown from "react-markdown"
 import rehypeRaw from "rehype-raw"
 import rehypeSanitize from "rehype-sanitize"
 import remarkBreaks from "remark-breaks"
+import remarkGemoji from "remark-gemoji"
 import { usePRComments, type PRReactions, type PRComment } from "@/hooks/useAgents"
 import { FollowupForm } from "./FollowupForm"
 
@@ -77,7 +78,7 @@ function CommentList({ comments, isLoading, error }: {
               {new Date(comment.createdAt).toLocaleString()}
             </div>
             <div className="text-sm prose prose-sm prose-invert max-w-none overflow-x-auto">
-              <Markdown remarkPlugins={[remarkBreaks]} rehypePlugins={[rehypeRaw, rehypeSanitize]}>{comment.body}</Markdown>
+              <Markdown remarkPlugins={[remarkBreaks, remarkGemoji]} rehypePlugins={[rehypeRaw, rehypeSanitize]}>{comment.body}</Markdown>
             </div>
             <Reactions reactions={comment.reactions} />
           </div>
