@@ -4,6 +4,7 @@ import { use, useState } from "react"
 import Link from "next/link"
 import Markdown from "react-markdown"
 import rehypeRaw from "rehype-raw"
+import remarkGemoji from "remark-gemoji"
 import { toast } from "sonner"
 import { RefreshCw } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
@@ -212,7 +213,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
                   <CardTitle className="text-base">Summary</CardTitle>
                 </CardHeader>
                 <CardContent className="prose prose-xs prose-invert max-w-none overflow-x-auto text-sm">
-                  <Markdown rehypePlugins={[rehypeRaw]}>{agent.summary}</Markdown>
+                  <Markdown remarkPlugins={[remarkGemoji]} rehypePlugins={[rehypeRaw]}>{agent.summary}</Markdown>
                 </CardContent>
               </Card>
             )}
