@@ -62,6 +62,10 @@ export async function getAgent(id: string): Promise<AgentsResponse["agents"][0]>
   return data as AgentsResponse["agents"][0]
 }
 
+export async function deleteAgent(id: string): Promise<{ id: string }> {
+  return fetchCursorAPI(`/agents/${id}`, { method: "DELETE" })
+}
+
 export async function getConversation(agentId: string): Promise<ConversationResponse> {
   const data = await fetchCursorAPI(`/agents/${agentId}/conversation`)
   return ConversationResponseSchema.parse(data)

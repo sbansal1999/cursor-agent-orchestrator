@@ -2,6 +2,7 @@
 
 import { use, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import Markdown from "react-markdown"
 import rehypeRaw from "rehype-raw"
 import remarkGemoji from "remark-gemoji"
@@ -12,11 +13,12 @@ import dayjs from "dayjs"
 import relativeTime from "dayjs/plugin/relativeTime"
 
 dayjs.extend(relativeTime)
-import { useAgent, usePRStatus, useMarkPRReady, usePRCommits } from "@/hooks/useAgents"
+import { useAgent, useDeleteAgent, usePRStatus, useMarkPRReady, usePRCommits } from "@/hooks/useAgents"
 import { ConversationPanel } from "@/components/ConversationPanel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { AgentStatus } from "@/lib/schemas"
 
 const statusConfig: Record<AgentStatus, { className: string; dot: string }> = {
@@ -37,14 +39,17 @@ const prStatusConfig = {
 
 export default function AgentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const router = useRouter()
   const queryClient = useQueryClient()
   const [reviewRequested, setReviewRequested] = useState(false)
   const [requestingReview, setRequestingReview] = useState(false)
   const [refreshingComments, setRefreshingComments] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const { data: agent, isLoading, error } = useAgent(id)
   const { data: prInfo } = usePRStatus(agent?.target.prUrl)
   const markReadyMutation = useMarkPRReady(agent?.target.prUrl)
   const { data: prCommits } = usePRCommits(agent?.target.prUrl)
+  const deleteMutation = useDeleteAgent(id)
 
   const handleCopyCheckout = () => {
     const branch = agent?.target.branchName
@@ -92,6 +97,19 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
     markReadyMutation.mutate(undefined, {
       onSuccess: () => toast.success("PR marked ready for review"),
       onError: () => toast.error("Failed to mark PR ready"),
+    })
+  }
+
+  const handleDelete = () => {
+    deleteMutation.mutate(undefined, {
+      onSuccess: () => {
+        setDeleteOpen(false)
+        toast.success("Agent deleted")
+        router.push("/")
+      },
+      onError: () => {
+        toast.error("Failed to delete agent")
+      },
     })
   }
 
@@ -176,9 +194,36 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
                 View in Cursor
               </a>
             </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setDeleteOpen(true)}
+              disabled={deleteMutation.isPending}
+            >
+              Delete
+            </Button>
           </div>
         </div>
       </header>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete agent?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete {agent.name}. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleteMutation.isPending}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
+              {deleteMutation.isPending ? "Deleting..." : "Delete agent"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex-1 p-6 overflow-hidden">
         <div className="grid lg:grid-cols-[1fr_700px] gap-6 h-full">

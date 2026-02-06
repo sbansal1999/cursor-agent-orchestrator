@@ -232,6 +232,22 @@ export function useFollowup(agentId: string) {
   })
 }
 
+export function useDeleteAgent(agentId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () =>
+      fetchJSON(`/api/agents/${agentId}`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agents"] })
+      queryClient.removeQueries({ queryKey: ["agent", agentId] })
+      queryClient.removeQueries({ queryKey: ["conversation", agentId] })
+    },
+  })
+}
+
 export type PRCommit = {
   sha: string
   message: string
