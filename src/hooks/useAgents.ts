@@ -146,7 +146,15 @@ export function useBatchPRComments(prUrls: string[]) {
   return { fetchedCount, total: prUrls.length, isLoading, refetch }
 }
 
-export type PRInfo = { status: "open" | "merged" | "closed"; title: string; number: number; updatedAt: string; draft: boolean }
+export type PRInfo = {
+  status: "open" | "merged" | "closed"
+  title: string
+  number: number
+  updatedAt: string
+  draft: boolean
+  mergeable: boolean | null
+  mergeableState: string | null
+}
 
 const MERGED_PRS_KEY = "cachedMergedPRs"
 

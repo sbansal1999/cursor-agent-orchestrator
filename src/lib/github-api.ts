@@ -6,6 +6,8 @@ export interface PRInfo {
   number: number
   updatedAt: string
   draft: boolean
+  mergeable: boolean | null
+  mergeableState: string | null
 }
 
 const ISSUE_MAP_KEY = "agentIssueMap"
@@ -101,6 +103,8 @@ export async function fetchPRStatus(prUrl: string): Promise<PRInfo | null> {
     number: data.number,
     updatedAt: data.updated_at,
     draft: data.draft ?? false,
+    mergeable: typeof data.mergeable === "boolean" ? data.mergeable : null,
+    mergeableState: data.mergeable_state ?? null,
   }
 }
 

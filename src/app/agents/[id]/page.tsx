@@ -133,6 +133,19 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
   }
 
   const status = statusConfig[agent.status]
+  const mergeableLabel = prInfo
+    ? prInfo.status !== "open"
+      ? "N/A"
+      : prInfo.mergeable === true
+        ? "Yes"
+        : prInfo.mergeable === false
+          ? "No"
+          : "Unknown"
+    : null
+  const mergeableState =
+    prInfo?.status === "open" && prInfo.mergeableState
+      ? prInfo.mergeableState.replace(/_/g, " ")
+      : null
 
   return (
     <main className="h-screen flex flex-col overflow-hidden">
@@ -249,6 +262,15 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
                   <span className="text-muted-foreground">Created:</span>{" "}
                   {new Date(agent.createdAt).toLocaleString()}
                 </div>
+                {prInfo && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Mergeable:</span>{" "}
+                    <span>{mergeableLabel}</span>
+                    {mergeableState && (
+                      <span className="text-muted-foreground/60 text-xs">({mergeableState})</span>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
