@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { repo, title, description, assignToCursor, baseBranch } = body
+  const { repo, title, description, assignToCursor, baseBranch, branchType, jiraTicket } = body
 
   if (!repo || !title) {
     return NextResponse.json({ error: "repo and title are required" }, { status: 400 })
@@ -40,6 +40,18 @@ export async function POST(request: NextRequest) {
 
   // If assignToCursor is true, comment on the issue
   if (assignToCursor) {
+    const instructions = [`@cursor Fix this issue (issue #${issue.number}).`]
+    if (baseBranch) {
+      instructions.push(`Open the PR against base branch \`${baseBranch}\`.`)
+    }
+    if (branchType && jiraTicket) {
+      instructions.push(`Use a branch name in the format \`${branchType}/${jiraTicket.toLowerCase()}\`.`)
+    } else if (branchType) {
+      instructions.push(`Use a branch name in the format \`${branchType}/<short-slug>\`.`)
+    } else if (jiraTicket) {
+      instructions.push(`Include Jira ticket \`${jiraTicket}\` in the branch name, for example \`<type>/${jiraTicket.toLowerCase()}\`.`)
+    }
+
     const commentRes = await fetch(
       `https://api.github.com/repos/${repoPath}/issues/${issue.number}/comments`,
       {
@@ -49,11 +61,7 @@ export async function POST(request: NextRequest) {
           Accept: "application/vnd.github.v3+json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          body: baseBranch
-            ? `@cursor Fix this issue (issue #${issue.number}). Open the PR against base branch \`${baseBranch}\`.`
-            : `@cursor Fix this issue (issue #${issue.number}).`,
-        }),
+        body: JSON.stringify({ body: instructions.join(" ") }),
       }
     )
 

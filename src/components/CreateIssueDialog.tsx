@@ -40,6 +40,8 @@ export function CreateIssueDialog({ repos }: CreateIssueDialogProps) {
   const [description, setDescription] = useState("")
   const [assignToCursor, setAssignToCursor] = useState(true)
   const [baseBranch, setBaseBranch] = useState("")
+  const [branchType, setBranchType] = useState("")
+  const [jiraTicket, setJiraTicket] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { data: branchesData, isLoading: branchesLoading } = useRepoBranches(repo)
@@ -64,7 +66,15 @@ export function CreateIssueDialog({ repos }: CreateIssueDialogProps) {
       const res = await fetch("/api/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repo, title, description, assignToCursor, baseBranch: baseBranch || undefined }),
+        body: JSON.stringify({
+          repo,
+          title,
+          description,
+          assignToCursor,
+          baseBranch: baseBranch || undefined,
+          branchType: branchType || undefined,
+          jiraTicket: jiraTicket || undefined,
+        }),
       })
 
       if (!res.ok) {
@@ -94,6 +104,8 @@ export function CreateIssueDialog({ repos }: CreateIssueDialogProps) {
       setDescription("")
       setAssignToCursor(true)
       setBaseBranch("")
+      setBranchType("")
+      setJiraTicket("")
       setOpen(false)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error"
@@ -176,6 +188,36 @@ export function CreateIssueDialog({ repos }: CreateIssueDialogProps) {
               </Select>
             </div>
           )}
+          <div className="grid gap-3">
+            <Label>Branch Naming</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="branch-type">Branch Type</Label>
+              <Select
+                value={branchType || "__default__"}
+                onValueChange={(value) => setBranchType(value === "__default__" ? "" : value)}
+              >
+                <SelectTrigger id="branch-type">
+                  <SelectValue placeholder="No preference" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__default__">No preference</SelectItem>
+                  <SelectItem value="feat">feat</SelectItem>
+                  <SelectItem value="fix">fix</SelectItem>
+                  <SelectItem value="chore">chore</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="jira-ticket">Jira Ticket</Label>
+              <Input
+                id="jira-ticket"
+                value={jiraTicket}
+                onChange={(e) => setJiraTicket(e.target.value.toUpperCase())}
+                placeholder="ABC-123"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">Optional. If both are set, branch format becomes `type/ticket-slug`.</p>
+          </div>
           <div className="flex items-center space-x-2">
             <Checkbox
               id="assignToCursor"
