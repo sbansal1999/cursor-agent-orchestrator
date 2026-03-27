@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3098",
+    "dev": "sh -c 'next dev -p 3098 & PID=$!; until curl -fsS http://localhost:3098 >/dev/null 2>&1; do sleep 0.5; done; open http://localhost:3098; wait $PID'",
     "build": "next build",
     "start": "next start",
     "lint": "oxlint src/"
