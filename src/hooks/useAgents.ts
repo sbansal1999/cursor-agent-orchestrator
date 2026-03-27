@@ -51,6 +51,7 @@ export type PRComment = {
 }
 
 type PRCommentsResponse = { comments: PRComment[] }
+type RepoBranchesResponse = { branches: string[] }
 
 export function usePRComments(prUrl: string | undefined, options?: { refetch?: boolean; enabled?: boolean }) {
   return useQuery<PRCommentsResponse>({
@@ -59,6 +60,15 @@ export function usePRComments(prUrl: string | undefined, options?: { refetch?: b
     enabled: (options?.enabled ?? true) && !!prUrl,
     staleTime: 60000,
     refetchInterval: options?.refetch ? POLL_INTERVAL : false,
+  })
+}
+
+export function useRepoBranches(repo: string) {
+  return useQuery<RepoBranchesResponse>({
+    queryKey: ["repo-branches", repo],
+    queryFn: () => fetchJSON(`/api/repo-branches?repo=${encodeURIComponent(repo)}`),
+    enabled: !!repo,
+    staleTime: 60000,
   })
 }
 

@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { repo, title, description, assignToCursor } = body
+  const { repo, title, description, assignToCursor, baseBranch } = body
 
   if (!repo || !title) {
     return NextResponse.json({ error: "repo and title are required" }, { status: 400 })
@@ -49,7 +49,11 @@ export async function POST(request: NextRequest) {
           Accept: "application/vnd.github.v3+json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ body: `@cursor Fix this issue (issue #${issue.number}).` }),
+        body: JSON.stringify({
+          body: baseBranch
+            ? `@cursor Fix this issue (issue #${issue.number}). Open the PR against base branch \`${baseBranch}\`.`
+            : `@cursor Fix this issue (issue #${issue.number}).`,
+        }),
       }
     )
 

@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { useRepoBranches } from "@/hooks/useAgents"
 import { useLocalStorage } from "@/hooks/useLocalStorage"
 import { storeIssueMapping } from "@/lib/github-api"
 import {
@@ -38,8 +39,10 @@ export function CreateIssueDialog({ repos }: CreateIssueDialogProps) {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [assignToCursor, setAssignToCursor] = useState(true)
+  const [baseBranch, setBaseBranch] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { data: branchesData, isLoading: branchesLoading } = useRepoBranches(repo)
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -61,7 +64,7 @@ export function CreateIssueDialog({ repos }: CreateIssueDialogProps) {
       const res = await fetch("/api/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repo, title, description, assignToCursor }),
+        body: JSON.stringify({ repo, title, description, assignToCursor, baseBranch: baseBranch || undefined }),
       })
 
       if (!res.ok) {
@@ -90,6 +93,7 @@ export function CreateIssueDialog({ repos }: CreateIssueDialogProps) {
       setTitle("")
       setDescription("")
       setAssignToCursor(true)
+      setBaseBranch("")
       setOpen(false)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error"
@@ -98,6 +102,11 @@ export function CreateIssueDialog({ repos }: CreateIssueDialogProps) {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleRepoChange = (value: string) => {
+    setRepo(value)
+    setBaseBranch("")
   }
 
   return (
@@ -117,7 +126,7 @@ export function CreateIssueDialog({ repos }: CreateIssueDialogProps) {
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
             <Label htmlFor="repo">Repository</Label>
-            <Select value={repo} onValueChange={setRepo}>
+            <Select value={repo} onValueChange={handleRepoChange}>
               <SelectTrigger id="repo">
                 <SelectValue placeholder="Select a repository" />
               </SelectTrigger>
@@ -149,6 +158,24 @@ export function CreateIssueDialog({ repos }: CreateIssueDialogProps) {
               className="min-h-[120px] max-h-[300px] overflow-y-auto resize-y"
             />
           </div>
+          {repo && (
+            <div className="grid gap-2">
+              <Label htmlFor="base-branch">PR Base Branch</Label>
+              <Select value={baseBranch || "__default__"} onValueChange={(value) => setBaseBranch(value === "__default__" ? "" : value)}>
+                <SelectTrigger id="base-branch">
+                  <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Default branch"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__default__">Default branch</SelectItem>
+                  {branchesData?.branches.map((branch) => (
+                    <SelectItem key={branch} value={branch}>
+                      {branch}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="flex items-center space-x-2">
             <Checkbox
               id="assignToCursor"
