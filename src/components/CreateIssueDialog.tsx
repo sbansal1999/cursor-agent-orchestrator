@@ -128,15 +128,15 @@ export function CreateIssueDialog({ repos }: CreateIssueDialogProps) {
           Create Issue
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]" onKeyDown={handleKeyDown}>
+      <DialogContent className="sm:max-w-[560px]" onKeyDown={handleKeyDown}>
         <DialogHeader>
           <DialogTitle>Create Issue</DialogTitle>
           <DialogDescription>
-            Create a new GitHub issue and optionally assign it to Cursor agent.
+            Create a GitHub issue and optionally assign it to a Cursor agent.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
+        <div className="grid gap-3 py-2">
+          <div className="grid gap-1.5">
             <Label htmlFor="repo">Repository</Label>
             <Select value={repo} onValueChange={handleRepoChange}>
               <SelectTrigger id="repo">
@@ -151,7 +151,7 @@ export function CreateIssueDialog({ repos }: CreateIssueDialogProps) {
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-2">
+          <div className="grid gap-1.5">
             <Label htmlFor="title">Title</Label>
             <Input
               id="title"
@@ -160,43 +160,44 @@ export function CreateIssueDialog({ repos }: CreateIssueDialogProps) {
               placeholder="Issue title"
             />
           </div>
-          <div className="grid gap-2">
+          <div className="grid gap-1.5">
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Issue description (optional)"
-              className="min-h-[120px] max-h-[300px] overflow-y-auto resize-y"
+              className="min-h-[100px] max-h-[250px] overflow-y-auto resize-y"
             />
           </div>
-          {repo && (
-            <div className="grid gap-2">
-              <Label htmlFor="base-branch">PR Base Branch</Label>
-              <Select value={baseBranch || "__default__"} onValueChange={(value) => setBaseBranch(value === "__default__" ? "" : value)}>
-                <SelectTrigger id="base-branch">
-                  <SelectValue placeholder={branchesLoading ? "Loading branches..." : "Default branch"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__default__">Default branch</SelectItem>
-                  {branchesData?.branches.map((branch) => (
-                    <SelectItem key={branch} value={branch}>
-                      {branch}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          <div className="grid gap-3">
-            <Label>Branch Naming</Label>
-            <div className="grid gap-2">
+
+          {/* Base Branch + Branch Type + Jira — single row */}
+          <div className={`grid gap-3 ${repo ? "grid-cols-3" : "grid-cols-2"}`}>
+            {repo && (
+              <div className="grid gap-1.5">
+                <Label htmlFor="base-branch">Base Branch</Label>
+                <Select value={baseBranch || "__default__"} onValueChange={(value) => setBaseBranch(value === "__default__" ? "" : value)}>
+                  <SelectTrigger id="base-branch" className="w-full">
+                    <SelectValue placeholder={branchesLoading ? "Loading..." : "Default branch"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__default__">Default branch</SelectItem>
+                    {branchesData?.branches.map((branch) => (
+                      <SelectItem key={branch} value={branch}>
+                        {branch}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="grid gap-1.5">
               <Label htmlFor="branch-type">Branch Type</Label>
               <Select
                 value={branchType || "__default__"}
                 onValueChange={(value) => setBranchType(value === "__default__" ? "" : value)}
               >
-                <SelectTrigger id="branch-type">
+                <SelectTrigger id="branch-type" className="w-full">
                   <SelectValue placeholder="No preference" />
                 </SelectTrigger>
                 <SelectContent>
@@ -207,7 +208,7 @@ export function CreateIssueDialog({ repos }: CreateIssueDialogProps) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2">
+            <div className="grid gap-1.5">
               <Label htmlFor="jira-ticket">Jira Ticket</Label>
               <Input
                 id="jira-ticket"
@@ -216,21 +217,21 @@ export function CreateIssueDialog({ repos }: CreateIssueDialogProps) {
                 placeholder="ABC-123"
               />
             </div>
-            <p className="text-xs text-muted-foreground">Optional. If both are set, branch format becomes `type/ticket-slug`.</p>
           </div>
-          <div className="flex items-center space-x-2">
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+        <DialogFooter>
+          <div className="flex items-center gap-2 mr-auto">
             <Checkbox
               id="assignToCursor"
               checked={assignToCursor}
               onCheckedChange={(checked) => setAssignToCursor(checked === true)}
             />
-            <Label htmlFor="assignToCursor" className="cursor-pointer">
+            <Label htmlFor="assignToCursor" className="cursor-pointer text-sm text-muted-foreground">
               Assign to Cursor agent
             </Label>
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-        </div>
-        <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
