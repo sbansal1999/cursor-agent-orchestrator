@@ -36,7 +36,7 @@ async function fetchCursorAPI<T>(
   return response.json()
 }
 
-export async function listAgents(cursor?: string): Promise<AgentsResponse> {
+async function listAgents(cursor?: string): Promise<AgentsResponse> {
   const params = new URLSearchParams()
   params.set("limit", "100")
   if (cursor) params.set("cursor", cursor)

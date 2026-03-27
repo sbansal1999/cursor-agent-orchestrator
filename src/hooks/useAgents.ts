@@ -1,12 +1,9 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
 import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query"
-import type { AgentsResponse, ConversationResponse, Agent } from "@/lib/schemas"
+import type { AgentsResponse, Agent } from "@/lib/schemas"
 
 const POLL_INTERVAL = 10000
-const BATCH_SIZE = 8
-
 async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options)
   if (!res.ok) {
@@ -33,16 +30,6 @@ export function useAgent(id: string | null) {
   })
 }
 
-export function useConversation(agentId: string | null, options?: { refetch?: boolean; enabled?: boolean }) {
-  return useQuery<ConversationResponse>({
-    queryKey: ["conversation", agentId],
-    queryFn: () => fetchJSON(`/api/agents/${agentId}/conversation`),
-    enabled: (options?.enabled ?? true) && !!agentId,
-    staleTime: 5 * 60 * 1000,
-    refetchInterval: options?.refetch ? POLL_INTERVAL : false,
-  })
-}
-
 export type PRReactions = {
   "+1": number
   "-1": number
@@ -63,7 +50,7 @@ export type PRComment = {
   reactions: PRReactions
 }
 
-export type PRCommentsResponse = { comments: PRComment[] }
+type PRCommentsResponse = { comments: PRComment[] }
 
 export function usePRComments(prUrl: string | undefined, options?: { refetch?: boolean; enabled?: boolean }) {
   return useQuery<PRCommentsResponse>({
@@ -75,78 +62,7 @@ export function usePRComments(prUrl: string | undefined, options?: { refetch?: b
   })
 }
 
-export type IssueCommentsResponse = { comments: PRComment[] }
-
-export function useIssueComments(issueUrl: string | undefined, options?: { refetch?: boolean; enabled?: boolean }) {
-  return useQuery<IssueCommentsResponse>({
-    queryKey: ["issue-comments", issueUrl],
-    queryFn: () => fetchJSON(`/api/issue-comments?url=${encodeURIComponent(issueUrl!)}`),
-    enabled: (options?.enabled ?? true) && !!issueUrl,
-    staleTime: 60000,
-    refetchInterval: options?.refetch ? POLL_INTERVAL : false,
-  })
-}
-
-export function useBatchPRComments(prUrls: string[]) {
-  const queryClient = useQueryClient()
-  const [fetchedCount, setFetchedCount] = useState(0)
-  const [isLoading, setIsLoading] = useState(false)
-  const abortRef = useRef<AbortController | null>(null)
-
-  const fetchInBatches = useCallback(async (urls: string[]) => {
-    abortRef.current?.abort()
-    abortRef.current = new AbortController()
-    const signal = abortRef.current.signal
-
-    const toFetch = urls.filter(
-      (url) => !queryClient.getQueryData<PRCommentsResponse>(["pr-comments", url])
-    )
-    const alreadyCached = urls.length - toFetch.length
-
-    // Only show loading if there's actually something to fetch
-    if (toFetch.length === 0) {
-      setFetchedCount(urls.length)
-      setIsLoading(false)
-      return
-    }
-
-    setFetchedCount(alreadyCached)
-    setIsLoading(true)
-
-    for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
-      if (signal.aborted) break
-
-      const batch = toFetch.slice(i, i + BATCH_SIZE)
-      
-      await Promise.allSettled(
-        batch.map(async (prUrl) => {
-          if (signal.aborted) throw new Error("Aborted")
-          const data = await fetchJSON<PRCommentsResponse>(`/api/pr-comments?url=${encodeURIComponent(prUrl)}`)
-          queryClient.setQueryData(["pr-comments", prUrl], data)
-          setFetchedCount((c) => c + 1)
-        })
-      )
-    }
-
-    if (!signal.aborted) {
-      setIsLoading(false)
-    }
-  }, [queryClient])
-
-  const refetch = useCallback(() => {
-    if (prUrls.length > 0) {
-      fetchInBatches(prUrls)
-    }
-  }, [prUrls, fetchInBatches])
-
-  useEffect(() => {
-    return () => abortRef.current?.abort()
-  }, [])
-
-  return { fetchedCount, total: prUrls.length, isLoading, refetch }
-}
-
-export type PRInfo = {
+type PRInfo = {
   status: "open" | "merged" | "closed"
   title: string
   number: number
@@ -223,23 +139,6 @@ export function usePRStatuses(agents: Agent[] | undefined) {
   return { prInfoMap, isLoading }
 }
 
-export function useFollowup(agentId: string) {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (message: string) =>
-      fetchJSON(`/api/agents/${agentId}/followup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["conversation", agentId] })
-      queryClient.invalidateQueries({ queryKey: ["agents"] })
-    },
-  })
-}
-
 export function useDeleteAgent(agentId: string) {
   const queryClient = useQueryClient()
 
@@ -256,7 +155,7 @@ export function useDeleteAgent(agentId: string) {
   })
 }
 
-export type PRCommit = {
+type PRCommit = {
   sha: string
   message: string
   author: string
@@ -264,7 +163,7 @@ export type PRCommit = {
   url: string
 }
 
-export type PRCommitsResponse = { commits: PRCommit[] }
+type PRCommitsResponse = { commits: PRCommit[] }
 
 export function usePRCommits(prUrl: string | undefined) {
   return useQuery<PRCommitsResponse>({

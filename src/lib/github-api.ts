@@ -1,6 +1,6 @@
-export type PRStatus = "open" | "merged" | "closed"
+type PRStatus = "open" | "merged" | "closed"
 
-export interface PRInfo {
+interface PRInfo {
   status: PRStatus
   title: string
   number: number
@@ -24,35 +24,13 @@ export function storeIssueMapping(repo: string, issueUrl: string, issueTitle: st
   } catch {}
 }
 
-// Try to find issue URL from stored mappings based on agent name
-export function findStoredIssueUrl(repo: string, agentName: string): string | undefined {
-  if (typeof window === "undefined") return undefined
-  try {
-    const map = JSON.parse(localStorage.getItem(ISSUE_MAP_KEY) || "{}")
-    const nameKey = agentName.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 50)
-    // Try to find a matching key
-    for (const [key, url] of Object.entries(map)) {
-      if (key.startsWith(`${repo}:`) && nameKey.includes(key.split(":")[1].slice(0, 20))) {
-        return url as string
-      }
-    }
-  } catch {}
-  return undefined
-}
-
-// Derive issue URL from agent data
-export function deriveIssueUrl(agent: { name: string; source: { repository: string; issueUrl?: string } }): string | undefined {
-  if (agent.source.issueUrl) return agent.source.issueUrl
-  return findStoredIssueUrl(agent.source.repository, agent.name)
-}
-
-export function parsePrUrl(prUrl: string): { owner: string; repo: string; number: number } | null {
+function parsePrUrl(prUrl: string): { owner: string; repo: string; number: number } | null {
   const match = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/)
   if (!match) return null
   return { owner: match[1], repo: match[2], number: parseInt(match[3], 10) }
 }
 
-export function parseIssueUrl(issueUrl: string): { owner: string; repo: string; number: number } | null {
+function parseIssueUrl(issueUrl: string): { owner: string; repo: string; number: number } | null {
   const match = issueUrl.match(/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)/)
   if (!match) return null
   return { owner: match[1], repo: match[2], number: parseInt(match[3], 10) }
@@ -108,7 +86,7 @@ export async function fetchPRStatus(prUrl: string): Promise<PRInfo | null> {
   }
 }
 
-export interface PRReactions {
+interface PRReactions {
   "+1": number
   "-1": number
   laugh: number
@@ -119,7 +97,7 @@ export interface PRReactions {
   eyes: number
 }
 
-export interface PRComment {
+interface PRComment {
   id: number
   user: string
   body: string
@@ -316,7 +294,7 @@ export async function markPRReadyForReview(prUrl: string): Promise<boolean> {
   return !result.errors
 }
 
-export interface PRCommit {
+interface PRCommit {
   sha: string
   message: string
   author: string

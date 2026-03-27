@@ -19,7 +19,7 @@ export const AgentSchema = z.object({
   createdAt: z.string(),
 })
 
-export const MessageSchema = z.object({
+const MessageSchema = z.object({
   id: z.string(),
   type: z.enum(["user_message", "assistant_message"]),
   text: z.string(),
@@ -41,6 +41,5 @@ export const FollowupRequestSchema = z.object({
 // Infer types from schemas
 export type Agent = z.infer<typeof AgentSchema>
 export type AgentStatus = z.infer<typeof AgentStatusSchema>
-export type Message = z.infer<typeof MessageSchema>
 export type AgentsResponse = z.infer<typeof AgentsResponseSchema>
 export type ConversationResponse = z.infer<typeof ConversationResponseSchema>
